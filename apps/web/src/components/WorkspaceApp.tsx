@@ -1090,6 +1090,9 @@ export const WorkspaceApp = ({
   const handleCloseSettings = () => {
     setRightView("editor");
     setMobileBottomNavActive("home");
+    if (!isDesktopViewport()) {
+      setActivePane("memos");
+    }
   };
 
   const handleWorkspaceBackRequest = useCallback(() => {

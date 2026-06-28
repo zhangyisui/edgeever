@@ -1,14 +1,15 @@
-import { useState, type FormEvent } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, ShieldCheck, Trash2, ChevronLeft, Plus, User, Image, LogOut } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, Image, KeyRound, LogOut, Plus, ShieldCheck, Trash2, User } from "lucide-react";
+import type { ApiToken, AuthUser } from "@edgeever/shared";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
 import { cn, formatDateTime } from "@/lib/utils";
 import { AppConfirmDialog } from "./dialogs/ConfirmDialogs";
-import type { ApiToken, AuthUser } from "@edgeever/shared";
 
 const ALL_TOKEN_SCOPES = [
   "read:notebooks",
@@ -44,6 +45,307 @@ interface SettingsPaneProps {
   authRequired: boolean;
 }
 
+interface ProfileCardProps {
+  user: AuthUser | null;
+}
+
+const ProfileCard = ({ user }: ProfileCardProps) => (
+  <Card className="overflow-hidden border-emerald-100 bg-gradient-to-br from-white to-emerald-50/40 shadow-none">
+    <CardContent className="flex items-center gap-4 p-5">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-bold uppercase text-white shadow-sm shadow-emerald-200">
+        {user?.username?.charAt(0) ?? "U"}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-base font-bold text-slate-900">{user?.username ?? "本地用户"}</div>
+        <div className="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+          在线工作区已连接
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+interface PreferenceCardProps {
+  imageCompressionEnabled: boolean;
+  onImageCompressionChange: (enabled: boolean) => void;
+}
+
+const PreferenceCard = ({ imageCompressionEnabled, onImageCompressionChange }: PreferenceCardProps) => (
+  <Card className="shadow-none">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-sm">
+        <Image className="h-4 w-4 text-emerald-700" />
+        偏好设置
+      </CardTitle>
+      <CardDescription>同步移动端和桌面端的常用写作偏好。</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <div className="flex min-h-16 items-center justify-between gap-4 rounded-lg border border-slate-100 bg-slate-50/70 px-4 py-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900">压缩笔记内图片</div>
+          <div className="mt-0.5 text-xs leading-5 text-slate-500">上传大图时在本地压缩，节省资源占用。</div>
+        </div>
+        <Switch
+          checked={imageCompressionEnabled}
+          onCheckedChange={onImageCompressionChange}
+          aria-label="是否压缩笔记内图片"
+        />
+      </div>
+    </CardContent>
+  </Card>
+);
+
+interface CreatedTokenNoticeProps {
+  token: string;
+}
+
+const CreatedTokenNotice = ({ token }: CreatedTokenNoticeProps) => (
+  <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-4">
+    <div className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-900">
+      <ShieldCheck className="h-5 w-5 text-emerald-700" />
+      API Token 已成功生成
+    </div>
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <Input
+        className="min-w-0 flex-1 border-emerald-200 font-mono text-xs focus-visible:ring-emerald-500/20"
+        readOnly
+        value={token}
+      />
+      <Button
+        size="md"
+        variant="solid"
+        className="bg-emerald-600 text-white hover:bg-emerald-700"
+        type="button"
+        onClick={() => void navigator.clipboard?.writeText(token)}
+      >
+        复制 Token
+      </Button>
+    </div>
+    <p className="mt-2 text-xs font-medium leading-5 text-emerald-800">安全提醒：明文 Token 仅展示一次，关闭后无法再次找回。</p>
+  </div>
+);
+
+interface ScopePickerProps {
+  availableScopes: string[];
+  selectedScopes: Set<string>;
+  onToggleScope: (scope: string) => void;
+}
+
+const ScopePicker = ({ availableScopes, selectedScopes, onToggleScope }: ScopePickerProps) => (
+  <div className="space-y-2">
+    <span className="block text-xs font-semibold text-slate-500">Token 权限范围</span>
+    <div className="grid gap-2 sm:grid-cols-2">
+      {availableScopes.map((scope) => {
+        const checked = selectedScopes.has(scope);
+        const checkboxId = `token-scope-${scope.replace(/[^a-z0-9]+/gi, "-")}`;
+
+        return (
+          <label
+            key={scope}
+            htmlFor={checkboxId}
+            className={cn(
+              "flex min-h-10 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors",
+              checked
+                ? "border-emerald-500/30 bg-emerald-50/70 text-emerald-800"
+                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            <Checkbox
+              id={checkboxId}
+              checked={checked}
+              onCheckedChange={() => onToggleScope(scope)}
+              className="border-emerald-300"
+            />
+            <span className="min-w-0 truncate text-xs font-semibold" title={scope}>
+              {getTokenScopeLabel(scope)}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  </div>
+);
+
+interface TokenListProps {
+  tokens: ApiToken[];
+  isLoading: boolean;
+  isRevoking: boolean;
+  onRevoke: (token: ApiToken) => void;
+}
+
+const TokenList = ({ tokens, isLoading, isRevoking, onRevoke }: TokenListProps) => {
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
+        正在加载 Token 列表...
+      </div>
+    );
+  }
+
+  if (tokens.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
+        暂无活跃的 API Token
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {tokens.map((token) => (
+        <div
+          key={token.id}
+          className={cn(
+            "flex min-h-16 items-center gap-3 rounded-lg border p-3 transition-colors sm:p-4",
+            token.isRevoked ? "border-slate-100 bg-slate-50/50 opacity-60" : "border-slate-200 bg-white hover:border-slate-300"
+          )}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold leading-tight text-slate-900">{token.name}</span>
+            <span
+              className="mt-2 block w-fit max-w-full truncate rounded-md border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-500"
+              title={token.scopes.join(", ")}
+            >
+              {token.scopes.map(getTokenScopeLabel).join("、") || "无权限"}
+            </span>
+            <span className="mt-2 block text-[11px] font-medium text-slate-400">
+              {token.lastUsedAt ? `上次调用时间：${formatDateTime(token.lastUsedAt)}` : "从未被调用"}
+            </span>
+          </span>
+          <Button
+            size="icon"
+            variant="danger"
+            className="h-9 w-9 shrink-0"
+            title="撤销 Token"
+            aria-label="撤销 Token"
+            disabled={token.isRevoked || isRevoking}
+            onClick={() => onRevoke(token)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+interface TokenCardProps {
+  name: string;
+  onNameChange: (name: string) => void;
+  selectedScopes: Set<string>;
+  availableScopes: string[];
+  createdToken: string | null;
+  tokens: ApiToken[];
+  isCreating: boolean;
+  isLoadingTokens: boolean;
+  isRevoking: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onToggleScope: (scope: string) => void;
+  onRevokeToken: (token: ApiToken) => void;
+}
+
+const TokenCard = ({
+  name,
+  onNameChange,
+  selectedScopes,
+  availableScopes,
+  createdToken,
+  tokens,
+  isCreating,
+  isLoadingTokens,
+  isRevoking,
+  onSubmit,
+  onToggleScope,
+  onRevokeToken,
+}: TokenCardProps) => (
+  <Card className="shadow-none lg:col-span-2">
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2 text-sm">
+        <KeyRound className="h-4 w-4 text-emerald-700" />
+        API & MCP 授权
+      </CardTitle>
+      <CardDescription>为 MCP 客户端或第三方工具生成访问凭证。</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-5">
+      {createdToken && <CreatedTokenNotice token={createdToken} />}
+
+      <form className="space-y-4 rounded-lg border border-slate-100 bg-slate-50/70 p-4" onSubmit={onSubmit}>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input
+            className="min-w-0 flex-1 focus-visible:ring-4 focus-visible:ring-emerald-500/10"
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+            placeholder="Token 用途，例如：MCP Agent"
+          />
+          <Button
+            size="md"
+            variant="solid"
+            className="h-10 bg-emerald-500 text-white hover:bg-emerald-600 sm:shrink-0"
+            type="submit"
+            disabled={isCreating}
+          >
+            <Plus className="h-4 w-4" />
+            生成 Token
+          </Button>
+        </div>
+
+        <ScopePicker
+          availableScopes={availableScopes}
+          selectedScopes={selectedScopes}
+          onToggleScope={onToggleScope}
+        />
+      </form>
+
+      <div className="space-y-3">
+        <span className="block text-xs font-semibold text-slate-500">活跃 Token</span>
+        <TokenList
+          tokens={tokens}
+          isLoading={isLoadingTokens}
+          isRevoking={isRevoking}
+          onRevoke={onRevokeToken}
+        />
+      </div>
+    </CardContent>
+  </Card>
+);
+
+interface SessionCardProps {
+  authRequired: boolean;
+  isLoggingOut: boolean;
+  onLogout: () => void;
+}
+
+const SessionCard = ({ authRequired, isLoggingOut, onLogout }: SessionCardProps) => {
+  if (!authRequired) {
+    return null;
+  }
+
+  return (
+    <Card className="border-rose-100 bg-rose-50/30 shadow-none lg:col-span-2">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-sm text-rose-950">
+          <LogOut className="h-4 w-4 text-rose-700" />
+          会话管理
+        </CardTitle>
+        <CardDescription>退出登录会清理这台设备上的本地 session 状态。</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          size="md"
+          variant="danger"
+          className="bg-rose-600 font-semibold text-white shadow-sm hover:bg-rose-700"
+          disabled={isLoggingOut}
+          onClick={onLogout}
+        >
+          <LogOut className="h-4 w-4" />
+          {isLoggingOut ? "安全退出中..." : "退出登录"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
 export const SettingsPane = ({
   user,
   onClose,
@@ -56,6 +358,7 @@ export const SettingsPane = ({
   const queryClient = useQueryClient();
   const [name, setName] = useState("MCP Agent");
   const [selectedScopes, setSelectedScopes] = useState<Set<string>>(() => new Set(ALL_TOKEN_SCOPES));
+  const [scopeDefaultsSynced, setScopeDefaultsSynced] = useState(false);
   const [createdToken, setCreatedToken] = useState<{ token: string; apiToken: ApiToken } | null>(null);
   const [tokenRevokeConfirmation, setTokenRevokeConfirmation] = useState<ApiToken | null>(null);
 
@@ -65,6 +368,16 @@ export const SettingsPane = ({
   });
 
   const availableScopes = tokensQuery.data?.availableScopes ?? ALL_TOKEN_SCOPES;
+  const tokens = tokensQuery.data?.apiTokens ?? [];
+
+  useEffect(() => {
+    if (scopeDefaultsSynced || !tokensQuery.data?.availableScopes) {
+      return;
+    }
+
+    setSelectedScopes(new Set(tokensQuery.data.availableScopes));
+    setScopeDefaultsSynced(true);
+  }, [scopeDefaultsSynced, tokensQuery.data?.availableScopes]);
 
   const createMutation = useMutation({
     mutationFn: api.createApiToken,
@@ -82,8 +395,6 @@ export const SettingsPane = ({
       await queryClient.invalidateQueries({ queryKey: ["api-tokens"] });
     },
   });
-
-  const tokens = tokensQuery.data?.apiTokens ?? [];
 
   const toggleScope = (scope: string) => {
     setSelectedScopes((current) => {
@@ -109,213 +420,51 @@ export const SettingsPane = ({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-white">
-      <header className="flex h-[calc(4rem+env(safe-area-inset-top))] shrink-0 items-end justify-between border-b border-slate-200 px-6 pb-3 pt-[env(safe-area-inset-top)] lg:h-16 lg:items-center lg:pb-0 lg:pt-0">
-        <div className="flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col bg-slate-50">
+      <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-end justify-between border-b border-slate-200 bg-white px-4 pb-3 pt-[env(safe-area-inset-top)] lg:h-16 lg:items-center lg:px-6 lg:pb-0 lg:pt-0">
+        <div className="flex min-w-0 items-center gap-3">
           <Button
             size="icon"
             variant="ghost"
-            title="返回编辑器"
-            aria-label="返回编辑器"
+            title="返回上一页"
+            aria-label="返回上一页"
             onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-slate-100"
+            className="h-9 w-9 rounded-lg hover:bg-slate-100"
           >
             <ChevronLeft className="h-5 w-5 text-slate-500" />
           </Button>
           <div className="min-w-0">
-            <h1 className="flex items-center gap-2 text-base font-bold text-slate-900 leading-tight">
-              <User className="h-4.5 w-4.5 text-emerald-700" />
-              个人中心 & 设置
+            <h1 className="flex items-center gap-2 text-base font-bold leading-tight text-slate-900">
+              <User className="h-4 w-4 text-emerald-700" />
+              我的
             </h1>
-            <p className="mt-0.5 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-              管理个人偏好设置、第三方 API 凭证及登录会话
-            </p>
+            <p className="mt-0.5 truncate text-xs font-medium text-slate-400">个人偏好、MCP Token 与登录会话</p>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
-        <div className="mx-auto max-w-2xl space-y-6">
-          {/* Section 1: User Profile */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-xl font-bold text-white uppercase shadow-md">
-              {user?.username?.charAt(0) ?? "U"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-base font-bold text-slate-800">{user?.username ?? "本地用户"}</div>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block"></span>
-                在线工作区已连接
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Preferences */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Image className="h-4.5 w-4.5 text-emerald-700" />
-              偏好设置
-            </h2>
-            <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-slate-50/60 border border-slate-100">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800">压缩笔记内图片</div>
-                <div className="text-xs text-slate-400 mt-0.5">上传大图时在本地进行无损或有损压缩以节省资源占用</div>
-              </div>
-              <Switch
-                checked={imageCompressionEnabled}
-                onCheckedChange={onImageCompressionChange}
-                aria-label="是否压缩笔记内图片"
-              />
-            </div>
-          </div>
-
-          {/* Section 3: API & MCP */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-            <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <KeyRound className="h-4.5 w-4.5 text-emerald-700" />
-              API & MCP 授权设置
-            </h2>
-
-            {createdToken && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-sm animate-fade-in">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-900">
-                  <ShieldCheck className="h-5 w-5 text-emerald-700" />
-                  API Token 已成功生成
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    className="min-w-0 flex-1 rounded-lg border-emerald-200 font-mono text-xs focus-visible:ring-emerald-500/20"
-                    readOnly
-                    value={createdToken.token}
-                  />
-                  <Button
-                    size="md"
-                    variant="solid"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    type="button"
-                    onClick={() => void navigator.clipboard?.writeText(createdToken.token)}
-                  >
-                    复制 Token
-                  </Button>
-                </div>
-                <p className="mt-2 text-xs font-medium text-emerald-800">
-                  ⚠️ 安全警告：明文 Token 仅在此处展示一次，关闭后将无法再次找回！
-                </p>
-              </div>
-            )}
-
-            <form className="space-y-4 rounded-lg bg-slate-50/60 border border-slate-100 p-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Input
-                  className="min-w-0 flex-1 rounded-lg focus-visible:ring-4 focus-visible:ring-emerald-500/10"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Token 用途描述，例如: Cline Agent"
-                />
-                <Button 
-                  size="md" 
-                  variant="solid" 
-                  className="h-10 bg-emerald-500 hover:bg-emerald-600 text-white shrink-0"
-                  type="submit" 
-                  disabled={createMutation.isPending}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  生成 Token
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <span className="block text-xs font-semibold text-slate-500">选择 Token 权限范围：</span>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {availableScopes.map((scope) => (
-                    <label
-                      key={scope}
-                      className={cn(
-                        "flex min-h-9 items-center gap-3 rounded-lg border px-3 py-1 cursor-pointer transition-all duration-150",
-                        selectedScopes.has(scope)
-                          ? "border-emerald-500/30 bg-emerald-50/50 text-emerald-700"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50/50"
-                      )}
-                    >
-                      <Checkbox
-                        checked={selectedScopes.has(scope)}
-                        onCheckedChange={() => toggleScope(scope)}
-                        className="border-emerald-300"
-                      />
-                      <span className="min-w-0 truncate text-xs font-semibold" title={scope}>
-                        {getTokenScopeLabel(scope)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </form>
-
-            <div className="space-y-3">
-              <span className="block text-xs font-semibold text-slate-500">活跃的 Token 列表：</span>
-              {tokensQuery.isLoading ? (
-                <div className="py-8 text-center text-sm text-slate-400">正在加载 Token 列表...</div>
-              ) : tokens.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
-                  暂无活跃的 API Token
-                </div>
-              ) : (
-                tokens.map((token) => (
-                  <div
-                    key={token.id}
-                    className={cn(
-                      "flex min-h-16 items-center gap-4 rounded-xl border p-4 transition-all duration-200",
-                      token.isRevoked ? "border-slate-100 bg-slate-50/50 opacity-60" : "border-slate-200 bg-white hover:border-slate-300"
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-slate-800 leading-tight">{token.name}</span>
-                      <span
-                        className="mt-2 block truncate text-[10px] font-semibold text-slate-500 bg-slate-50 px-2 py-1 rounded w-fit max-w-full border border-slate-100"
-                        title={token.scopes.join(", ")}
-                      >
-                        {token.scopes.map(getTokenScopeLabel).join("、") || "无权限"}
-                      </span>
-                      <span className="mt-2 block text-[10px] font-medium text-slate-400">
-                        {token.lastUsedAt ? `上次调用时间：${formatDateTime(token.lastUsedAt)}` : "从未被调用"}
-                      </span>
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      className="shrink-0"
-                      disabled={token.isRevoked || revokeMutation.isPending}
-                      onClick={() => setTokenRevokeConfirmation(token)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      撤销
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Section 4: System / Danger zone */}
-          {authRequired && (
-            <div className="rounded-xl border border-rose-100 bg-rose-50/30 p-5 shadow-sm">
-              <h2 className="text-sm font-bold text-rose-900 mb-3 flex items-center gap-2">
-                <LogOut className="h-4.5 w-4.5 text-rose-700" />
-                会话管理
-              </h2>
-              <p className="text-xs text-slate-400 mb-4">退出登录将清理您在这台设备上的本地 session 状态。</p>
-              <Button
-                size="md"
-                variant="danger"
-                className="bg-rose-600 hover:bg-rose-700 text-white font-semibold shadow-sm"
-                disabled={isLoggingOut}
-                onClick={onLogout}
-              >
-                <LogOut className="h-4 w-4 mr-1.5" />
-                {isLoggingOut ? "安全退出中..." : "退出登录"}
-              </Button>
-            </div>
-          )}
+      <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6 lg:py-6">
+        <div className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-2">
+          <ProfileCard user={user} />
+          <PreferenceCard
+            imageCompressionEnabled={imageCompressionEnabled}
+            onImageCompressionChange={onImageCompressionChange}
+          />
+          <TokenCard
+            name={name}
+            onNameChange={setName}
+            selectedScopes={selectedScopes}
+            availableScopes={availableScopes}
+            createdToken={createdToken?.token ?? null}
+            tokens={tokens}
+            isCreating={createMutation.isPending}
+            isLoadingTokens={tokensQuery.isLoading}
+            isRevoking={revokeMutation.isPending}
+            onSubmit={handleSubmit}
+            onToggleScope={toggleScope}
+            onRevokeToken={setTokenRevokeConfirmation}
+          />
+          <SessionCard authRequired={authRequired} isLoggingOut={isLoggingOut} onLogout={onLogout} />
         </div>
       </div>
 
