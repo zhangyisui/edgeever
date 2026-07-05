@@ -50,7 +50,7 @@ select {
 
 .mobile-editor-back,
 .mobile-editor-done,
-.mobile-editor-tool-row button {
+.mobile-editor-tool-button {
   border: 0;
   border-radius: 999px;
   background: transparent;
@@ -82,7 +82,7 @@ select {
 }
 
 .mobile-editor-done:disabled,
-.mobile-editor-tool-row button:disabled {
+.mobile-editor-tool-button:disabled {
   background: #e2e8f0;
   color: #64748b;
 }
@@ -181,31 +181,51 @@ select {
 .mobile-editor-tool-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 34px;
+  gap: 4px;
+  min-height: 38px;
+  overflow-x: auto;
+  border-block: 1px solid #f1f5f9;
+  margin-inline: -12px;
+  padding: 6px 12px;
+  scrollbar-width: none;
 }
 
-.mobile-editor-tool-row button {
+.mobile-editor-tool-row::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-editor-tool-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  background: transparent;
   color: #64748b;
-  min-height: 34px;
-  width: 34px;
+  min-height: 32px;
+  width: 36px;
   padding: 0;
 }
 
-.mobile-editor-tool-row button:active {
-  background: #eef2f7;
+.mobile-editor-tool-button:active,
+.mobile-editor-tool-button[aria-pressed="true"] {
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.mobile-editor-tool-button:disabled {
+  border-color: transparent;
+}
+
+.mobile-editor-tool-button:disabled:active {
+  background: #e2e8f0;
   color: #334155;
 }
 
 .edgeever-mobile-tiptap-editor {
   min-height: calc(100dvh - 14rem);
-  border-top: 1px solid #f1f5f9;
-  margin: 4px -12px 0;
+  margin: 0 -12px;
 }
 
 .edgeever-mobile-tiptap-content {
@@ -243,6 +263,12 @@ select {
   color: #475569;
   margin: 0 0 0.85em;
   padding-left: 0.9em;
+}
+
+.edgeever-mobile-tiptap-content hr {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  margin: 1.2rem 0;
 }
 
 .edgeever-mobile-tiptap-content img {

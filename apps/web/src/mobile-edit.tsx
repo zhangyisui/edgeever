@@ -4,7 +4,7 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import { ImagePlus } from "lucide-react";
+import { Bold, ImagePlus, List, Minus, Quote } from "lucide-react";
 import { docToMarkdown, emptyDoc, markdownToDoc, type MemoDetail, type Notebook, type Resource, type TiptapDoc } from "@edgeever/shared";
 import { getNotebookMoveOptions } from "@/lib/app-helpers";
 import { compressImageForUpload } from "@/lib/image-compression";
@@ -113,6 +113,7 @@ const MobileTiptapEditorApp = () => {
   const saveStateRef = useRef<SaveState>("loading");
   const [error, setError] = useState<string | null>(null);
   const notebookOptions = useMemo(() => getNotebookMoveOptions(notebooks), [notebooks]);
+  const [, setToolbarVersion] = useState(0);
   const dirtyRef = useRef(false);
   const leavingRef = useRef(false);
   const savingRef = useRef(false);
@@ -210,6 +211,26 @@ const MobileTiptapEditorApp = () => {
   });
 
   const saveNowRef = useRef<({ keepalive }?: { keepalive?: boolean }) => Promise<boolean>>(async () => false);
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const refreshToolbar = () => setToolbarVersion((version) => version + 1);
+
+    editor.on("selectionUpdate", refreshToolbar);
+    editor.on("transaction", refreshToolbar);
+    editor.on("focus", refreshToolbar);
+    editor.on("blur", refreshToolbar);
+
+    return () => {
+      editor.off("selectionUpdate", refreshToolbar);
+      editor.off("transaction", refreshToolbar);
+      editor.off("focus", refreshToolbar);
+      editor.off("blur", refreshToolbar);
+    };
+  }, [editor]);
 
   useEffect(() => {
     memoRef.current = memo;
@@ -601,8 +622,19 @@ const MobileTiptapEditorApp = () => {
       : saveState === "dirty" || saveState === "saving" || saveState === "compressing" || saveState === "uploading" || saveState === "leaving"
         ? "active"
         : "";
+  const editorActionDisabled =
+    !memo || !editor || saveState === "loading" || saveState === "compressing" || saveState === "uploading" || saveState === "leaving";
 
   const fallbackMarkdown = memo ? docToMarkdown(contentJsonRef.current) : "";
+
+  const runEditorCommand = (command: () => boolean) => {
+    if (editorActionDisabled || !editor) {
+      return;
+    }
+
+    command();
+    editor.commands.focus();
+  };
 
   return (
     <div className="mobile-editor-shell">
@@ -660,13 +692,62 @@ const MobileTiptapEditorApp = () => {
 
         <div className="mobile-editor-tool-row">
           <button
+            className="mobile-editor-tool-button"
             type="button"
             aria-label="上传图片"
             title="上传图片"
-            disabled={!memo || saveState === "loading" || saveState === "compressing" || saveState === "uploading"}
+            disabled={editorActionDisabled}
+            onPointerDown={(event) => event.preventDefault()}
             onClick={() => imageInputRef.current?.click()}
           >
             <ImagePlus aria-hidden="true" size={18} strokeWidth={2} />
+          </button>
+          <button
+            className="mobile-editor-tool-button"
+            type="button"
+            aria-label="加粗"
+            title="加粗"
+            aria-pressed={Boolean(editor?.isActive("bold"))}
+            disabled={editorActionDisabled}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => runEditorCommand(() => editor?.chain().focus().toggleBold().run() ?? false)}
+          >
+            <Bold aria-hidden="true" size={17} strokeWidth={2.4} />
+          </button>
+          <button
+            className="mobile-editor-tool-button"
+            type="button"
+            aria-label="无序列表"
+            title="无序列表"
+            aria-pressed={Boolean(editor?.isActive("bulletList"))}
+            disabled={editorActionDisabled}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => runEditorCommand(() => editor?.chain().focus().toggleBulletList().run() ?? false)}
+          >
+            <List aria-hidden="true" size={18} strokeWidth={2.2} />
+          </button>
+          <button
+            className="mobile-editor-tool-button"
+            type="button"
+            aria-label="引用"
+            title="引用"
+            aria-pressed={Boolean(editor?.isActive("blockquote"))}
+            disabled={editorActionDisabled}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => runEditorCommand(() => editor?.chain().focus().toggleBlockquote().run() ?? false)}
+          >
+            <Quote aria-hidden="true" size={17} strokeWidth={2.2} />
+          </button>
+          <button
+            className="mobile-editor-tool-button"
+            type="button"
+            aria-label="分割线"
+            title="分割线"
+            disabled={editorActionDisabled}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => runEditorCommand(() => editor?.chain().focus().setHorizontalRule().run() ?? false)}
+          >
+            <Minus aria-hidden="true" size={18} strokeWidth={2.4} />
           </button>
         </div>
         <input
