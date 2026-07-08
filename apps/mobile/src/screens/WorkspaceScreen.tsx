@@ -1023,10 +1023,15 @@ export const WorkspaceScreen = () => {
         memoListDensity={memoListDensity}
         memoSortMode={memoSortMode}
         memoView={memoView}
+        isEmptyingTrash={emptyTrashMutation.isPending}
         onClose={() => setNotesActionsOpen(false)}
         onEnterSelection={() => {
           setNotesActionsOpen(false);
           enterSelectionMode();
+        }}
+        onEmptyTrash={() => {
+          setNotesActionsOpen(false);
+          handleEmptyTrash();
         }}
         onOpenApiTokens={() => {
           setNotesActionsOpen(false);
@@ -1305,10 +1310,12 @@ const NotesView = ({
 );
 
 const NotesActionsModal = ({
+  isEmptyingTrash,
   memoListDensity,
   memoSortMode,
   memoView,
   onClose,
+  onEmptyTrash,
   onEnterSelection,
   onMemoListDensityChange,
   onOpenApiTokens,
@@ -1318,10 +1325,12 @@ const NotesActionsModal = ({
   onToggleTrash,
   visible,
 }: {
+  isEmptyingTrash: boolean;
   memoListDensity: MobileMemoListDensity;
   memoSortMode: MemoSortMode;
   memoView: MemoView;
   onClose: () => void;
+  onEmptyTrash: () => void;
   onEnterSelection: () => void;
   onMemoListDensityChange: (density: MobileMemoListDensity) => void;
   onOpenApiTokens: () => void;
@@ -1350,11 +1359,14 @@ const NotesActionsModal = ({
         </ScrollView>
         <ActionSheetItem icon={<Tag color="#0f172a" size={18} />} label="标签管理" onPress={onOpenTags} />
         <ActionSheetItem icon={<Archive color="#0f172a" size={18} />} label="资源库" onPress={onOpenResources} />
-        <ActionSheetItem
-          icon={memoView === "trash" ? <BookOpen color="#0f172a" size={18} /> : <Trash2 color="#b91c1c" size={18} />}
-          label={memoView === "trash" ? "返回笔记列表" : "回收站"}
-          onPress={onToggleTrash}
-        />
+        {memoView === "trash" ? (
+          <>
+            <ActionSheetItem icon={<BookOpen color="#0f172a" size={18} />} label="返回笔记列表" onPress={onToggleTrash} />
+            <ActionSheetItem danger disabled={isEmptyingTrash} icon={<Trash2 color="#b91c1c" size={18} />} label={isEmptyingTrash ? "清空中" : "清空回收站"} onPress={onEmptyTrash} />
+          </>
+        ) : (
+          <ActionSheetItem icon={<Trash2 color="#b91c1c" size={18} />} label="回收站" onPress={onToggleTrash} />
+        )}
         <ActionSheetItem icon={<KeyRound color="#0f172a" size={18} />} label="MCP Token" onPress={onOpenApiTokens} />
       </Pressable>
     </Pressable>
