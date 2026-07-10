@@ -62,7 +62,7 @@ Please refer to the [Cloudflare Manual Deployment Guide](docs/manual-deploy.en-U
 
 EdgeEver can be installed as a PWA on desktop or mobile home screens. On desktop, open the site in Chrome or Edge and use the install icon in the address bar. On Android, open it in Chrome, use the three-dot menu, and choose **Add to Home screen** or **Install**. Avoid installing from embedded browsers such as WeChat.
 
-## Development Roadmap
+## Native Clients
 
 Native clients are part of the EdgeEver roadmap. The mobile app is planned to be built with React Native, and the desktop app is planned to be built with Tauri.
 
