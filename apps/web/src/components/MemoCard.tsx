@@ -380,11 +380,11 @@ export const MemoCard = ({
             {memoExcerpt}
           </div>
           <div className={cn("mt-5 flex flex-wrap items-center gap-2", listDensity === "compact" && "mt-2")}>
-            <time className="text-xs font-medium text-slate-700 lg:text-sm lg:font-normal lg:text-slate-700">
+            <time className="text-xs font-medium text-slate-800 lg:text-sm lg:font-normal lg:text-slate-800">
               {formatMemoPreviewDate(memo.updatedAt, i18n.resolvedLanguage ?? i18n.language, t("memoCard.yesterday"))}
             </time>
             {memo.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-800">
+              <span key={tag} className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-900">
                 #{tag}
               </span>
             ))}
