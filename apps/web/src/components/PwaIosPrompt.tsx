@@ -35,7 +35,7 @@ export const PwaIosPrompt = () => {
               {t("pwa.iosPrompt.title") || "将 EdgeEver 安装到主屏幕"}
             </h3>
             <p className="mt-1 text-xs text-slate-500 leading-normal">
-              {t("pwa.iosPrompt.subtitle") || "享受全屏独立窗口，体验如原生 App 般丝滑的印象笔记。"}
+              {t("pwa.iosPrompt.subtitle") || "享受全屏独立窗口，体验如原生 App 般丝滑的EdgeEver。"}
             </p>
             
             <div className="mt-3.5 flex flex-col gap-2 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600">
