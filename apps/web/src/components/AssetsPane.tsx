@@ -313,21 +313,36 @@ export const AssetsPane = ({ onClose, activeMemo }: AssetsPaneProps) => {
         {/* Search & Layout Toggles */}
         <div className="flex items-center gap-2">
           {/* Search box */}
-          <div className="relative flex-1 sm:w-60">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-full border border-transparent bg-slate-100 px-3 text-sm text-slate-500 transition focus-within:border-slate-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-slate-400/20 sm:w-60 sm:flex-none lg:rounded-md lg:border-slate-200 lg:bg-slate-50">
+            <Search className="h-4 w-4 shrink-0" />
             <input
-              type="text"
+              type="search"
               placeholder={t("assets.searchPlaceholder")}
               value={searchQuery}
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect="off"
+              enterKeyHint="search"
+              spellCheck={false}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8.5 w-full rounded-lg border border-slate-200 bg-slate-50/50 pl-8.5 pr-8 text-xs text-slate-800 placeholder-slate-400 transition-colors focus:border-emerald-500/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500/20"
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && searchQuery) {
+                  e.preventDefault();
+                  setSearchQuery("");
+                }
+              }}
+              className="min-w-0 flex-1 bg-transparent text-slate-900 outline-none placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
+                type="button"
+                title={t("memoList.clearSearch")}
+                aria-label={t("memoList.clearSearch")}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-650"
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition hover:bg-white hover:text-slate-700"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
