@@ -68,18 +68,10 @@ bun run deploy
 
 ---
 
-## 更新到最新版
+## 开启自动更新
 
-当官方仓库发布新版本时，如果你的实例是通过 Fork 部署的，可以按照以下步骤拉取最新代码并更新：
+首次部署完成后，请按 [Cloudflare Workers Builds 自动部署](cloudflare-workers-builds.zh-CN.md) 将 Worker 连接到 Fork。它是所有 EdgeEver 实例的标准生产发布路径。
 
-1. 打开你自己的 EdgeEver Fork 仓库页面。
-2. 点击页面上的 **Sync fork**，将官方仓库的最新代码同步到你的 Fork。
-3. 在本地项目目录中拉取更新并重新部署：
-   ```sh
-   git pull
-   bun install
-   bun run deploy:doctor
-   bun run deploy
-   ```
+一次连接完成后，只需在 Fork 页面点击 **Sync fork**。产生的 push 会自动构建 Web、应用新的远程 D1 migration 并发布 Worker；不需要再配置 GitHub Actions Secrets，也不需要本地重新部署。
 
-> ⚠️ **注意**：同步 Fork 仅仅更新了你 GitHub 仓库里的代码，并不会自动更新已经部署在 Cloudflare 的 Worker/Pages 实例。必须在本地（或通过 Agent）重新执行部署命令，更新才会生效。
+请保留 `bun run deploy` 作为首次安装和紧急修复的入口。

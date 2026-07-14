@@ -68,18 +68,10 @@ Before running `bun run deploy`, copy the D1 `database_id`, R2 bucket name, and 
 
 ---
 
-## Updating to the Latest Version
+## Enable Automatic Updates
 
-When a new version is released, you can sync your fork and redeploy to apply updates:
+After the first deployment, connect the Worker to your fork with [Cloudflare Workers Builds](cloudflare-workers-builds.md). This is the standard production deployment path for every EdgeEver instance.
 
-1. Open your EdgeEver fork on GitHub.
-2. Click **Sync fork** to pull the latest official code into your fork.
-3. Pull the updates locally and redeploy:
-   ```sh
-   git pull
-   bun install
-   bun run deploy:doctor
-   bun run deploy
-   ```
+After the one-time connection, click **Sync fork** whenever you want upstream updates. The resulting push automatically builds the web app, applies new remote D1 migrations, and deploys the Worker. No GitHub Actions secrets or local redeployment are required.
 
-> ⚠️ **Important**: Syncing the fork on GitHub only updates your repository code. It does not redeploy your Cloudflare instance. You must redeploy locally (or via an Agent) for the updates to take effect.
+Keep `bun run deploy` available for first installation and emergency recovery.
