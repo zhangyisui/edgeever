@@ -33,6 +33,7 @@ const mobileOnlyTranslations = new Map<string, string>([
   ["笔记标题", "Note title"],
   ["笔记标签", "Note tags"],
   ["选择笔记本", "Choose notebook"],
+  ["刷新 Token", "Refresh tokens"],
   ["没有正文预览", "No content preview"],
   ["原生运行时启动", "Native runtime startup"],
   ["启动至 JS 执行", "Launch to JavaScript execution"],

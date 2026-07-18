@@ -76,7 +76,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
 import Markdown from "react-native-markdown-display";
-import { createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type TagSummary, type TiptapDoc } from "@edgeever/shared";
+import { createExcerpt, docToMarkdown, docToText, getNotebookDescendantIds, markdownToDoc, type ApiToken, type AuthUser, type MemoDetail, type MemoRevision, type MemoSummary, type Notebook, type ResourceListItem, type TagSummary, type TiptapDoc } from "@edgeever/shared";
 import { clearMobileMemoDraft, clearMobileNewMemoDraft, readMobileMemoDraft, readMobileNewMemoDraft, writeMobileMemoDraft, writeMobileNewMemoDraft } from "../lib/mobile-drafts";
 import {
   readMobileImageCompressionEnabled,
@@ -116,8 +116,8 @@ import {
   syncMobileLocalMirror,
   upsertLocalMemo,
 } from "../lib/local-mirror";
-import { AccountSecurityModal } from "./AccountSecurityModal";
-import { getStartupPerformanceItems, markStartup, recordEditorStartup } from "../lib/startup-performance";
+import { AccountSecurityPanel } from "./AccountSecurityModal";
+import { markStartup, recordEditorStartup } from "../lib/startup-performance";
 import LocalTiptapEditor, { type LocalTiptapEditorRef } from "../components/LocalTiptapEditor";
 import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 
@@ -339,10 +339,6 @@ export const WorkspaceScreen = () => {
   const [tagsManagerOpen, setTagsManagerOpen] = useState(false);
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [apiTokensOpen, setApiTokensOpen] = useState(false);
-  const [advancedPlayOpen, setAdvancedPlayOpen] = useState(false);
-  const [systemInfoOpen, setSystemInfoOpen] = useState(false);
-  const [accountSecurityOpen, setAccountSecurityOpen] = useState(false);
-  const [accountSecuritySection, setAccountSecuritySection] = useState<"password" | "users">("password");
   const [syncQueueOpen, setSyncQueueOpen] = useState(false);
   const [revisionMemo, setRevisionMemo] = useState<MemoDetail | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -1152,18 +1148,9 @@ export const WorkspaceScreen = () => {
       {activeView === "account" ? <AccountView instance={session?.baseUrl ?? ""} userName={session?.user?.username ?? "owner"} onSignOut={signOut} /> : null}
       {activeView === "settings" ? (
         <SettingsView
-          onOpenAdvancedPlay={() => setAdvancedPlayOpen(true)}
+          baseUrl={session?.baseUrl ?? ""}
+          currentUser={session?.user ?? null}
           onClose={() => setActiveView("notes")}
-          onOpenPassword={() => {
-            setAccountSecuritySection("password");
-            setAccountSecurityOpen(true);
-          }}
-          onOpenUserManagement={() => {
-            setAccountSecuritySection("users");
-            setAccountSecurityOpen(true);
-          }}
-          onOpenApiTokens={() => setApiTokensOpen(true)}
-          onOpenSystemInfo={() => setSystemInfoOpen(true)}
           localePreference={localePreference}
           onLocalePreferenceChange={handleLocalePreferenceChange}
           imageCompressionEnabled={imageCompressionEnabled}
@@ -1233,7 +1220,6 @@ export const WorkspaceScreen = () => {
       {tagsManagerOpen ? <TagsManagerModal onClose={() => setTagsManagerOpen(false)} visible /> : null}
       {resourcesOpen ? <ResourcesModal activeMemo={selectedMemo} imageCompressionEnabled={imageCompressionEnabled} onClose={() => setResourcesOpen(false)} visible /> : null}
       {apiTokensOpen ? <ApiTokensModal baseUrl={session?.baseUrl ?? ""} onClose={() => setApiTokensOpen(false)} visible /> : null}
-      {advancedPlayOpen ? <AdvancedPlayModal onClose={() => setAdvancedPlayOpen(false)} visible /> : null}
       {syncQueueOpen ? <SyncQueueModal
         onClose={() => setSyncQueueOpen(false)}
         onChanged={async () => setSyncQueueSummary(await loadMobileSyncQueueSummary(syncQueueScope))}
@@ -1241,8 +1227,6 @@ export const WorkspaceScreen = () => {
         scope={syncQueueScope}
         visible
       /> : null}
-      {systemInfoOpen ? <SystemInfoModal baseUrl={session?.baseUrl ?? ""} memoCount={memoCount} notebookCount={notebooks.length} onClose={() => setSystemInfoOpen(false)} visible /> : null}
-      {accountSecurityOpen ? <AccountSecurityModal currentUser={session?.user ?? null} initialSection={accountSecuritySection} onClose={() => setAccountSecurityOpen(false)} visible /> : null}
       {revisionMemo ? <RevisionHistoryModal
         memo={revisionMemo}
         onClose={() => setRevisionMemo(null)}
@@ -1383,9 +1367,10 @@ export const WorkspaceScreen = () => {
         />
       ) : null}
 
-      <View
-        style={[styles.bottomNav, { height: 52 + safeAreaInsets.bottom, paddingBottom: safeAreaInsets.bottom }]}
-      >
+      {activeView !== "settings" ? (
+        <View
+          style={[styles.bottomNav, { height: 52 + safeAreaInsets.bottom, paddingBottom: safeAreaInsets.bottom }]}
+        >
         <BottomNavItem
           active={activeView === "notes"}
           icon={<Home color={activeView === "notes" ? "#0f172a" : "#64748b"} size={20} />}
@@ -1402,12 +1387,13 @@ export const WorkspaceScreen = () => {
           <Plus color={canCreateMemo ? "#ffffff" : "#e2e8f0"} size={28} />
         </Pressable>
         <BottomNavItem
-          active={activeView === "settings"}
-          icon={<UserRound color={activeView === "settings" ? "#0f172a" : "#64748b"} size={20} />}
+          active={false}
+          icon={<UserRound color="#64748b" size={20} />}
           label="我的"
           onPress={() => setActiveView("settings")}
         />
-      </View>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 };
@@ -1945,30 +1931,24 @@ const AccountInfoCopyRow = ({ instance, userName }: { instance: string; userName
 };
 
 const SettingsView = ({
+  baseUrl,
+  currentUser,
   imageCompressionEnabled,
   isOwner,
   localePreference,
   onClose,
   onImageCompressionChange,
   onLocalePreferenceChange,
-  onOpenAdvancedPlay,
-  onOpenApiTokens,
-  onOpenPassword,
-  onOpenSystemInfo,
-  onOpenUserManagement,
   onSignOut,
 }: {
+  baseUrl: string;
+  currentUser: AuthUser | null;
   imageCompressionEnabled: boolean;
   isOwner: boolean;
   localePreference: MobileLocaleMode;
   onClose: () => void;
   onImageCompressionChange: (enabled: boolean) => void;
   onLocalePreferenceChange: (locale: MobileLocaleMode) => void;
-  onOpenAdvancedPlay: () => void;
-  onOpenApiTokens: () => void;
-  onOpenPassword: () => void;
-  onOpenSystemInfo: () => void;
-  onOpenUserManagement: () => void;
   onSignOut: () => void;
 }) => {
   const { resolvedTheme, toggleTheme } = useMobileTheme();
@@ -1980,6 +1960,19 @@ const SettingsView = ({
     { key: "account", label: "登录设置", icon: <ShieldCheck color="#059669" size={17} /> },
   ];
   const title = tabs.find((tab) => tab.key === activeTab)?.label ?? "我的";
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (activeTab) {
+        setActiveTab(null);
+      } else {
+        onClose();
+      }
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [activeTab, onClose]);
 
   const renderContent = () => {
     if (activeTab === "general") {
@@ -2014,29 +2007,30 @@ const SettingsView = ({
               </View>
             </View>
           </SettingsGroup>
-          <SettingsLinkGroup
-            description="查看当前应用版本、构建标识和运行环境。"
-            icon={<HardDrive color="#047857" size={16} />}
-            onPress={onOpenSystemInfo}
-            title="系统信息"
-          />
+          <SystemInfoCard />
         </View>
       );
     }
     if (activeTab === "users") {
-      return <SettingsLinkGroup description="为家人或团队成员创建独立的个人笔记空间。实例不开放公开注册。" icon={<Users color="#047857" size={16} />} onPress={onOpenUserManagement} title="成员管理" />;
+      return (
+        <View style={styles.settingsGroup}>
+          <AccountSecurityPanel active currentUser={currentUser} section="users" />
+        </View>
+      );
     }
     if (activeTab === "ai") {
       return (
         <View style={styles.settingsDetailList}>
-          <SettingsLinkGroup description="搭配 AI Agent 的进阶玩法。" icon={<Sparkles color="#047857" size={16} />} onPress={onOpenAdvancedPlay} title="进阶玩法" />
-          <SettingsLinkGroup description="让 AI Agent 可以读取和整理你的笔记。" icon={<KeyRound color="#047857" size={16} />} onPress={onOpenApiTokens} title="生成 MCP 配置" />
+          <AdvancedPlayCard />
+          <ApiTokensContent active baseUrl={baseUrl} />
         </View>
       );
     }
     return (
       <View style={styles.settingsDetailList}>
-        <SettingsLinkGroup description="修改后会保留当前设备登录，并退出其他设备上的登录会话。" icon={<ShieldCheck color="#047857" size={16} />} onPress={onOpenPassword} title="修改密码" />
+        <View style={styles.settingsGroup}>
+          <AccountSecurityPanel active currentUser={currentUser} section="password" />
+        </View>
         <Pressable onPress={onSignOut} style={styles.settingsLogoutButton}>
           <LogOut color="#ffffff" size={17} />
           <Text style={styles.settingsLogoutText}>退出登录</Text>
@@ -2088,18 +2082,6 @@ const SettingsGroup = ({ children, icon, title }: { children: ReactNode; icon?: 
     {title ? <View style={styles.settingsGroupHeader}>{icon}<Text style={styles.settingsGroupTitle}>{title}</Text></View> : null}
     {children}
   </View>
-);
-
-const SettingsLinkGroup = ({ description, icon, onPress, title }: { description: string; icon: ReactNode; onPress: () => void; title: string }) => (
-  <Pressable onPress={onPress} style={styles.settingsGroup}>
-    <View style={styles.settingsLinkHeader}>
-      <View style={styles.settingsLinkCopy}>
-        <View style={styles.settingsGroupHeader}>{icon}<Text style={styles.settingsGroupTitle}>{title}</Text></View>
-        <Text style={styles.settingsLinkDescription}>{description}</Text>
-      </View>
-      <ChevronRight color="#94a3b8" size={17} />
-    </View>
-  </Pressable>
 );
 
 const CreateMemoModal = ({
@@ -3082,14 +3064,18 @@ const TagsManagerModal = ({ onClose, visible }: { onClose: () => void; visible: 
   );
 };
 
-const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClose: () => void; visible: boolean }) => {
+const ApiTokensContent = ({ active, baseUrl }: { active: boolean; baseUrl: string }) => {
   const { client } = useSession();
+  const { translate } = useMobileLocale();
   const queryClient = useQueryClient();
   const [name, setName] = useState("MCP Agent");
+  const [nameDefaultsSynced, setNameDefaultsSynced] = useState(false);
   const [selectedScopes, setSelectedScopes] = useState<Set<string>>(() => new Set(ALL_TOKEN_SCOPES));
   const [scopeDefaultsSynced, setScopeDefaultsSynced] = useState(false);
+  const [scopesExpanded, setScopesExpanded] = useState(false);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [copiedValue, setCopiedValue] = useState<string | null>(null);
+  const [exampleOpen, setExampleOpen] = useState(false);
 
   const tokensQuery = useQuery({
     queryKey: ["mobile", "api-tokens"],
@@ -3100,11 +3086,23 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
 
       return client.listApiTokens();
     },
-    enabled: Boolean(client && visible),
+    enabled: Boolean(client && active),
   });
 
   const availableScopes = tokensQuery.data?.availableScopes ?? ALL_TOKEN_SCOPES;
   const tokens = tokensQuery.data?.apiTokens ?? [];
+
+  useEffect(() => {
+    if (nameDefaultsSynced || !tokensQuery.data) {
+      return;
+    }
+    const highestTokenNumber = tokens.reduce((highest, token) => {
+      const match = token.name.match(/^MCP Token (\d+)$/i);
+      return match ? Math.max(highest, Number(match[1])) : highest;
+    }, 0);
+    setName(`MCP Token ${highestTokenNumber + 1}`);
+    setNameDefaultsSynced(true);
+  }, [nameDefaultsSynced, tokens, tokensQuery.data]);
 
   useEffect(() => {
     if (scopeDefaultsSynced || !tokensQuery.data?.availableScopes) {
@@ -3189,21 +3187,22 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
-      <SafeAreaView style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton onPress={onClose}>
-            <X color="#0f172a" size={20} />
-          </IconButton>
-          <Text style={styles.modalTitle}>MCP 与 API Token</Text>
-          <IconButton onPress={() => tokensQuery.refetch()}>
-            {tokensQuery.isFetching ? <ActivityIndicator color="#0f172a" /> : <RefreshCw color="#0f172a" size={18} />}
-          </IconButton>
+    <View style={styles.settingsGroup}>
+      <View style={styles.settingsInlineCardHeader}>
+        <View style={styles.settingsLinkCopy}>
+          <View style={styles.settingsGroupHeader}>
+            <KeyRound color="#047857" size={16} />
+            <Text style={styles.settingsGroupTitle}>生成 MCP 配置</Text>
+          </View>
+          <Text style={styles.settingsLinkDescription}>让 AI Agent 可以读取和整理你的笔记。</Text>
         </View>
+        <IconButton accessibilityLabel="刷新 Token" onPress={() => tokensQuery.refetch()}>
+          {tokensQuery.isFetching ? <ActivityIndicator color="#0f172a" /> : <RefreshCw color="#0f172a" size={18} />}
+        </IconButton>
+      </View>
 
-        <ScrollView contentContainerStyle={styles.editorForm}>
-          <Text style={styles.sectionSubtitle}>创建远程 MCP 或 API 调用使用的 Bearer Token。</Text>
-          <ActionButton label={copiedValue === "example-config" ? "已复制示例" : "复制示例配置"} onPress={() => copyText(buildMcpRemoteConfig(baseUrl, "YOUR_TOKEN_HERE"), "example-config")}>
+      <View style={styles.settingsAccordionContent}>
+          <ActionButton label="使用示例" onPress={() => setExampleOpen(true)}>
             <Copy color="#0f172a" size={16} />
           </ActionButton>
 
@@ -3211,7 +3210,7 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
             <View style={styles.createdTokenPanel}>
               <View style={styles.assetsSummary}>
                 <ShieldCheck color="#047857" size={18} />
-                <Text style={styles.assetsSummaryText}>Token 已创建</Text>
+                <Text style={styles.assetsSummaryText}>API Token 已成功生成</Text>
               </View>
               <Text selectable numberOfLines={2} style={styles.tokenValueText}>
                 {createdToken}
@@ -3224,25 +3223,30 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
                   <KeyRound color="#0f172a" size={16} />
                 </ActionButton>
               </View>
-              <Text style={styles.assetsHint}>请立即保存。离开后服务端不会再次显示完整 Token。</Text>
+              <Text style={styles.assetsHint}>安全提醒：此 Token 属于高危凭证，请勿对外泄露。</Text>
             </View>
           ) : null}
 
-          <Text style={styles.label}>Token 名称</Text>
-          <TextInput onChangeText={setName} placeholder="MCP Agent" placeholderTextColor="#94a3b8" style={styles.titleInput} value={name} />
+          <TextInput onChangeText={setName} placeholder="Token 名称，例如：Codex 或 Claude Code" placeholderTextColor="#94a3b8" style={styles.titleInput} value={name} />
 
-          <Text style={styles.label}>权限范围</Text>
-          <View style={styles.scopeGrid}>
+          <Pressable accessibilityState={{ expanded: scopesExpanded }} onPress={() => setScopesExpanded((value) => !value)} style={styles.tokenScopeHeader}>
+            <View>
+              <Text style={styles.settingsRowTitle}>Token 权限范围</Text>
+              <Text style={styles.settingsRowDescription}>{translate(`已选择 ${selectedScopes.size}/${availableScopes.length}`)}</Text>
+            </View>
+            {scopesExpanded ? <ChevronDown color="#94a3b8" size={17} /> : <ChevronRight color="#94a3b8" size={17} />}
+          </Pressable>
+          {scopesExpanded ? <View style={styles.scopeGrid}>
             {availableScopes.map((scope) => {
               const selected = selectedScopes.has(scope);
 
               return (
                 <Pressable key={scope} onPress={() => toggleScope(scope)} style={[styles.scopePill, selected && styles.scopePillActive]}>
-                  <Text style={[styles.scopePillText, selected && styles.scopePillTextActive]}>{getTokenScopeLabel(scope)}</Text>
+                  <Text style={[styles.scopePillText, selected && styles.scopePillTextActive]}>{translate(getTokenScopeLabel(scope))}</Text>
                 </Pressable>
               );
             })}
-          </View>
+          </View> : null}
 
           <Pressable
             disabled={createTokenMutation.isPending}
@@ -3250,13 +3254,13 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
             style={[styles.uploadButton, createTokenMutation.isPending && styles.buttonDisabled]}
           >
             {createTokenMutation.isPending ? <ActivityIndicator color="#ffffff" /> : <Plus color="#ffffff" size={18} />}
-            <Text style={styles.uploadButtonText}>{createTokenMutation.isPending ? "创建中" : "创建 Token"}</Text>
+            <Text style={styles.uploadButtonText}>{createTokenMutation.isPending ? "正在创建..." : "生成 Token"}</Text>
           </Pressable>
           {createTokenMutation.error ? (
             <Text style={styles.errorText}>{createTokenMutation.error instanceof Error ? createTokenMutation.error.message : "创建失败"}</Text>
           ) : null}
 
-          <Text style={styles.label}>活跃 Token</Text>
+          <Text style={styles.label}>Token 列表</Text>
           {tokensQuery.isLoading ? (
             <View style={styles.centerInline}>
               <ActivityIndicator color="#0f172a" />
@@ -3264,7 +3268,7 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
           ) : tokens.length === 0 ? (
             <View style={styles.emptyInlinePanel}>
               <KeyRound color="#94a3b8" size={28} />
-              <Text style={styles.mutedText}>暂无 Token</Text>
+              <Text style={styles.mutedText}>暂无 API Token</Text>
             </View>
           ) : (
             tokens.map((token) => (
@@ -3282,11 +3286,43 @@ const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClos
           {revokeTokenMutation.error ? (
             <Text style={styles.errorText}>{revokeTokenMutation.error instanceof Error ? revokeTokenMutation.error.message : "撤销失败"}</Text>
           ) : null}
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+      </View>
+      <Modal animationType="fade" onRequestClose={() => setExampleOpen(false)} transparent visible={exampleOpen}>
+        <Pressable onPress={() => setExampleOpen(false)} style={styles.settingsDialogBackdrop}>
+          <Pressable style={styles.settingsExampleDialog}>
+            <View style={styles.promptCardHeader}>
+              <Text style={styles.settingsGroupTitle}>Remote MCP 示例</Text>
+              <IconButton accessibilityLabel="关闭" onPress={() => setExampleOpen(false)}>
+                <X color="#0f172a" size={18} />
+              </IconButton>
+            </View>
+            <Text selectable style={styles.tokenValueText}>{buildMcpRemoteConfig(baseUrl, "YOUR_TOKEN_HERE")}</Text>
+            <ActionButton label={copiedValue === "example-config" ? "已复制" : "复制示例"} onPress={() => copyText(buildMcpRemoteConfig(baseUrl, "YOUR_TOKEN_HERE"), "example-config")}>
+              <Copy color="#0f172a" size={16} />
+            </ActionButton>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
   );
 };
+
+const ApiTokensModal = ({ baseUrl, onClose, visible }: { baseUrl: string; onClose: () => void; visible: boolean }) => (
+  <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
+    <SafeAreaView style={styles.modalSafeArea}>
+      <View style={styles.modalHeader}>
+        <IconButton accessibilityLabel="关闭" onPress={onClose}>
+          <X color="#0f172a" size={20} />
+        </IconButton>
+        <Text style={styles.modalTitle}>MCP 与 API Token</Text>
+        <View style={styles.iconButtonPlaceholder} />
+      </View>
+      <ScrollView contentContainerStyle={styles.editorForm}>
+        <ApiTokensContent active={visible} baseUrl={baseUrl} />
+      </ScrollView>
+    </SafeAreaView>
+  </Modal>
+);
 
 const ApiTokenRow = ({
   baseUrl,
@@ -3303,6 +3339,7 @@ const ApiTokenRow = ({
   onDelete: (token: ApiToken) => void;
   token: ApiToken;
 }) => {
+  const { resolvedLocale, translate } = useMobileLocale();
   const tokenCopyLabel = `token-${token.id}`;
   const configCopyLabel = `config-${token.id}`;
   const canCopyToken = Boolean(token.token && !token.isRevoked);
@@ -3315,18 +3352,18 @@ const ApiTokenRow = ({
           {token.name}
         </Text>
         <Text numberOfLines={2} style={styles.panelLabel}>
-          {token.scopes.map(getTokenScopeLabel).join("、") || "无权限"}
+          {token.scopes.map((scope) => translate(getTokenScopeLabel(scope))).join(resolvedLocale === "en-US" ? ", " : "、") || translate("无权限")}
         </Text>
-        <Text style={styles.panelLabel}>{token.lastUsedAt ? `最近使用 ${formatDate(token.lastUsedAt, localePreference)}` : "从未使用"}</Text>
+        <Text style={styles.panelLabel}>{token.lastUsedAt ? `上次调用时间：${formatDate(token.lastUsedAt, localePreference)}` : "从未被调用"}</Text>
       </View>
       <View style={styles.apiTokenActions}>
-        <IconButton disabled={!canCopyToken} onPress={() => token.token && onCopy(token.token, tokenCopyLabel)}>
+        <IconButton accessibilityLabel={canCopyToken ? "复制 Token" : "旧 Token 无法复制"} disabled={!canCopyToken} onPress={() => token.token && onCopy(token.token, tokenCopyLabel)}>
           {copiedValue === tokenCopyLabel ? <ShieldCheck color="#047857" size={18} /> : <Copy color={canCopyToken ? "#0f172a" : "#cbd5e1"} size={18} />}
         </IconButton>
-        <IconButton disabled={!canCopyToken} onPress={() => token.token && onCopy(buildMcpRemoteConfig(baseUrl, token.token), configCopyLabel)}>
+        <IconButton accessibilityLabel={canCopyToken ? "复制完整 MCP 配置" : "旧 Token 无法复制 MCP 配置"} disabled={!canCopyToken} onPress={() => token.token && onCopy(buildMcpRemoteConfig(baseUrl, token.token), configCopyLabel)}>
           {copiedValue === configCopyLabel ? <ShieldCheck color="#047857" size={18} /> : <KeyRound color={canCopyToken ? "#0f172a" : "#cbd5e1"} size={18} />}
         </IconButton>
-        <IconButton onPress={() => !isDeleting && onDelete(token)}>
+        <IconButton accessibilityLabel="删除 Token" onPress={() => !isDeleting && onDelete(token)}>
           <Trash2 color="#b91c1c" size={18} />
         </IconButton>
       </View>
@@ -3334,8 +3371,9 @@ const ApiTokenRow = ({
   );
 };
 
-const AdvancedPlayModal = ({ onClose, visible }: { onClose: () => void; visible: boolean }) => {
+const AdvancedPlayCard = () => {
   const [copiedPromptId, setCopiedPromptId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const localePreference = useMobileLocalePreference();
   const advancedPrompts = useMemo(() => getMobileAdvancedPrompts(localePreference), [localePreference]);
 
@@ -3346,17 +3384,19 @@ const AdvancedPlayModal = ({ onClose, visible }: { onClose: () => void; visible:
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
-      <SafeAreaView style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton onPress={onClose}>
-            <X color="#0f172a" size={20} />
-          </IconButton>
-          <Text style={styles.modalTitle}>进阶玩法</Text>
-          <View style={styles.iconButtonPlaceholder} />
+    <View style={styles.settingsGroup}>
+      <Pressable accessibilityState={{ expanded }} onPress={() => setExpanded((value) => !value)} style={styles.settingsAccordionHeader}>
+        <View style={styles.settingsLinkCopy}>
+          <View style={styles.settingsGroupHeader}>
+            <Sparkles color="#047857" size={16} />
+            <Text style={styles.settingsGroupTitle}>进阶玩法</Text>
+          </View>
+          <Text style={styles.settingsLinkDescription}>搭配 AI Agent 的进阶玩法。</Text>
         </View>
-
-        <ScrollView contentContainerStyle={styles.editorForm}>
+        {expanded ? <ChevronDown color="#94a3b8" size={17} /> : <ChevronRight color="#94a3b8" size={17} />}
+      </Pressable>
+      {expanded ? (
+        <View style={styles.settingsAccordionContent}>
           <View style={styles.guideHero}>
             <Sparkles color="#047857" size={24} />
             <Text style={styles.panelValue}>搭配 AI Agent 的进阶工作流</Text>
@@ -3376,9 +3416,9 @@ const AdvancedPlayModal = ({ onClose, visible }: { onClose: () => void; visible:
               </Text>
             </View>
           ))}
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+        </View>
+      ) : null}
+    </View>
   );
 };
 
@@ -3497,46 +3537,20 @@ const SyncQueueModal = ({
   );
 };
 
-const SystemInfoModal = ({
-  baseUrl,
-  memoCount,
-  notebookCount,
-  onClose,
-  visible,
-}: {
-  baseUrl: string;
-  memoCount: number;
-  notebookCount: number;
-  onClose: () => void;
-  visible: boolean;
-}) => {
+const SystemInfoCard = () => {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const localePreference = useMobileLocalePreference();
   const resolvedLocale = getResolvedMobileLocale(localePreference);
   const copy = getMobileSystemInfoText(localePreference);
-  const expoConfig = Constants.expoConfig;
-  const expoExtra = expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
-  const nativeIdentifier = Platform.select({
-    android: expoConfig?.android?.package,
-    ios: expoConfig?.ios?.bundleIdentifier,
-    default: expoConfig?.slug,
-  });
   const infoItems = [
     { label: copy.version, value: `v${MOBILE_APP_VERSION}` },
     { label: copy.build, value: __DEV__ ? "development" : "production" },
     { label: copy.platform, value: Platform.OS },
     { label: copy.platformVersion, value: String(Platform.Version) },
-    { label: copy.installMode, value: formatExecutionEnvironment(Constants.executionEnvironment, localePreference) },
-    { label: copy.appIdentifier, value: nativeIdentifier || copy.unknown },
-    { label: "Expo Owner", value: expoConfig?.owner || copy.notSet },
-    { label: "Expo Slug", value: expoConfig?.slug || copy.unknown },
-    { label: "EAS Project ID", value: Constants.easConfig?.projectId || expoExtra?.eas?.projectId || copy.disconnected },
-    { label: copy.instanceUrl, value: baseUrl || copy.disconnected },
-    { label: copy.notebookCount, value: String(notebookCount) },
-    { label: copy.memoCount, value: String(memoCount) },
-    { label: copy.timeZone, value: Intl.DateTimeFormat().resolvedOptions().timeZone || copy.unknown },
     { label: copy.language, value: localePreference === "system" ? `${resolvedLocale} (${copy.followSystem})` : resolvedLocale },
-    ...getStartupPerformanceItems(),
+    { label: copy.timeZone, value: Intl.DateTimeFormat().resolvedOptions().timeZone || copy.unknown },
+    { label: copy.installMode, value: formatExecutionEnvironment(Constants.executionEnvironment, localePreference) },
   ];
 
   const copySystemInfo = async () => {
@@ -3546,26 +3560,28 @@ const SystemInfoModal = ({
   };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} presentationStyle="pageSheet" visible={visible}>
-      <SafeAreaView style={styles.modalSafeArea}>
-        <View style={styles.modalHeader}>
-          <IconButton onPress={onClose}>
-            <X color="#0f172a" size={20} />
-          </IconButton>
-          <Text style={styles.modalTitle}>{copy.title}</Text>
-          <IconButton onPress={copySystemInfo}>
-            {copied ? <ShieldCheck color="#047857" size={18} /> : <Copy color="#0f172a" size={18} />}
-          </IconButton>
+    <View style={styles.settingsGroup}>
+      <Pressable accessibilityState={{ expanded }} onPress={() => setExpanded((value) => !value)} style={styles.settingsAccordionHeader}>
+        <View style={styles.settingsLinkCopy}>
+          <View style={styles.settingsGroupHeader}>
+            <HardDrive color="#047857" size={16} />
+            <Text style={styles.settingsGroupTitle}>{copy.title}</Text>
+          </View>
+          <Text style={styles.settingsLinkDescription}>{copy.description}</Text>
         </View>
-
-        <ScrollView contentContainerStyle={styles.editorForm}>
-          <Text style={styles.sectionSubtitle}>{copy.description}</Text>
+        {expanded ? <ChevronDown color="#94a3b8" size={17} /> : <ChevronRight color="#94a3b8" size={17} />}
+      </Pressable>
+      {expanded ? (
+        <View style={styles.settingsAccordionContent}>
+          <ActionButton label={copied ? "已复制" : "复制信息"} onPress={copySystemInfo}>
+            {copied ? <ShieldCheck color="#047857" size={16} /> : <Copy color="#0f172a" size={16} />}
+          </ActionButton>
           {infoItems.map((item) => (
             <PanelRow key={item.label} label={item.label} value={item.value} />
           ))}
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
+        </View>
+      ) : null}
+    </View>
   );
 };
 
@@ -6365,13 +6381,13 @@ const toCompressedImageFilename = (filename: string) => {
 const getTokenScopeLabel = (scope: string) => {
   const labels: Record<string, string> = {
     "read:notebooks": "读取笔记本",
-    "write:notebooks": "写入笔记本",
+    "write:notebooks": "创建与修改笔记本",
     "read:memos": "读取笔记",
-    "write:memos": "写入笔记",
-    "read:resources": "读取资源",
-    "write:resources": "写入资源",
+    "write:memos": "创建与修改笔记",
+    "read:resources": "读取附件资源",
+    "write:resources": "上传与修改附件",
     "read:tags": "读取标签",
-    "write:tags": "写入标签",
+    "write:tags": "创建与修改标签",
   };
 
   return labels[scope] ?? scope;
@@ -6728,11 +6744,38 @@ const baseWorkspaceStyles = StyleSheet.create({
     lineHeight: 17,
     paddingHorizontal: 16,
   },
-  settingsLinkHeader: {
+  settingsAccordionHeader: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
     paddingRight: 16,
+  },
+  settingsInlineCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingRight: 16,
+  },
+  settingsAccordionContent: {
+    borderTopColor: "#f1f5f9",
+    borderTopWidth: 1,
+    gap: 10,
+    padding: 16,
+  },
+  settingsDialogBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.46)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  settingsExampleDialog: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    gap: 14,
+    maxWidth: 620,
+    padding: 16,
+    width: "100%",
   },
   settingsLinkCopy: {
     flex: 1,
@@ -7943,6 +7986,17 @@ const baseWorkspaceStyles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  tokenScopeHeader: {
+    alignItems: "center",
+    borderBottomColor: "#f1f5f9",
+    borderBottomWidth: 1,
+    borderTopColor: "#f1f5f9",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 52,
+    paddingVertical: 8,
   },
   scopePill: {
     backgroundColor: "#ffffff",
