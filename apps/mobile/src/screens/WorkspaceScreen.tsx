@@ -1842,10 +1842,12 @@ const SettingsView = ({
         <View style={styles.settingsGroup}>
           <AccountSecurityPanel active currentUser={currentUser} section="password" />
         </View>
-        <Pressable onPress={onSignOut} style={styles.settingsLogoutButton}>
-          <LogOut color="#ffffff" size={17} />
-          <Text style={styles.settingsLogoutText}>退出登录</Text>
-        </Pressable>
+        <View style={styles.settingsLogoutCard}>
+          <Pressable onPress={onSignOut} style={styles.settingsLogoutButton}>
+            <LogOut color="#ffffff" size={17} />
+            <Text style={styles.settingsLogoutText}>退出登录</Text>
+          </Pressable>
+        </View>
       </View>
     );
   };
@@ -2698,7 +2700,7 @@ const ApiTokensContent = ({ active, baseUrl, embedded = false }: { active: boole
                 <ActionButton label={copiedValue === "created-token" ? "已复制" : "复制 Token"} onPress={() => copyText(createdToken, "created-token")}>
                   <Copy color="#0f172a" size={16} />
                 </ActionButton>
-                <ActionButton label={copiedValue === "created-config" ? "已复制" : "复制 MCP 配置"} onPress={() => copyText(buildMcpRemoteConfig(baseUrl, createdToken), "created-config")}>
+                <ActionButton label={copiedValue === "created-config" ? "已复制" : "复制完整 MCP 配置"} onPress={() => copyText(buildMcpRemoteConfig(baseUrl, createdToken), "created-config")}>
                   <KeyRound color="#0f172a" size={16} />
                 </ActionButton>
               </View>
@@ -6048,6 +6050,13 @@ const baseWorkspaceStyles = StyleSheet.create({
     gap: 8,
     minHeight: 40,
     paddingHorizontal: 14,
+  },
+  settingsLogoutCard: {
+    backgroundColor: "#fff1f2",
+    borderColor: "#fecaca",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
   },
   settingsLogoutText: {
     color: "#ffffff",

@@ -10,7 +10,7 @@ import {
   Switch,
   View,
 } from "react-native";
-import { Alert, Pressable, Text, TextInput } from "../components/LocalizedText";
+import { Pressable, Text, TextInput } from "../components/LocalizedText";
 import { resolveMobileThemeStyles, useMobileTheme, type MobileResolvedTheme } from "../lib/mobile-theme";
 import { useSession } from "../lib/session";
 
@@ -59,7 +59,6 @@ export const AccountSecurityPanel = ({
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      Alert.alert("密码已更新", "下次登录请使用新密码。");
     },
   });
 
@@ -126,8 +125,9 @@ export const AccountSecurityPanel = ({
       <Field label="新密码" onChangeText={setNewPassword} value={newPassword} />
       <Field label="确认新密码" onChangeText={setConfirmPassword} value={confirmPassword} />
       {passwordMutation.error ? <Text style={styles.error}>{errorMessage(passwordMutation.error)}</Text> : null}
+      {passwordMutation.isSuccess ? <Text accessibilityLiveRegion="polite" style={styles.success}>密码已修改成功。</Text> : null}
       <PrimaryButton
-        disabled={passwordMutation.isPending || !currentPassword || !newPassword || !confirmPassword}
+        disabled={passwordMutation.isPending}
         label={passwordMutation.isPending ? "正在修改…" : "修改密码"}
         onPress={() => passwordMutation.mutate()}
       />
@@ -254,6 +254,7 @@ const baseAccountSecurityStyles = StyleSheet.create({
   primaryButtonText: { color: "#ffffff", fontSize: 14, fontWeight: "800" },
   disabled: { opacity: 0.45 },
   error: { color: "#be123c", fontSize: 13, lineHeight: 19 },
+  success: { color: "#15803d", fontSize: 13, fontWeight: "700", lineHeight: 19 },
   addButton: { alignItems: "center", backgroundColor: "#15803d", borderRadius: 9, flexDirection: "row", gap: 6, paddingHorizontal: 12, paddingVertical: 9 },
   addButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
   userCard: { alignItems: "center", backgroundColor: "#ffffff", borderColor: "#dce7dd", borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 12, padding: 14 },
